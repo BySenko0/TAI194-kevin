@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, Emailstr
+from pydantic import BaseModel, Field, EmailStr
 
 class ModelUsuario(BaseModel):  # Cambio en la M mayúscula
     id: int = Field(..., gt=0, description="Id siempre debe ser positivo")
@@ -7,5 +7,5 @@ class ModelUsuario(BaseModel):  # Cambio en la M mayúscula
     correo: str = Field(..., pattern=r"^.@.com$", description="Correo válido",example="usuario@example.com")  # Se cambia regex por pattern
 
 class ModelAuth(BaseModel):
-    correo: str = Emailstr
+    correo: EmailStr
     passw: str = Field(..., min_length=8, strip_whitespace=True, description="solo letras sin espacios min 8",example="")
