@@ -1,66 +1,75 @@
-from fastapi import FastAPI, HTTPException
-from models import ModelUsuario, ModelAuth # Cambio en la importación
 from typing import List
+from fastapi import FastAPI, HTTPException , Depends
+from models import modelAuth, modelUsuario
 from genToken import create_token
+from fastapi.responses import JSONResponse
+from middlewares import BearerJWT
 
 app = FastAPI(
-    title="Mi primer API con FastAPI",
-    description="Esto es una descripción de mi API",
+    title="Mi primer API",
+    description="Victor O.O",
     version="1.0.1"
 )
 
-# Lista de usuarios
+# Lista de usuarios simulando una BD
 usuarios = [
-    {"id": 1, "nombre": "kevin", "edad": 20, "correo": "uwu@gmail.com"},
-    {"id": 2, "nombre": "jose", "edad": 30, "correo": "owo@gmail.com"},
-    {"id": 3, "nombre": "maria", "edad": 40, "correo": "ewe@gmail.com"},
-    {"id": 4, "nombre": "luis", "edad": 50, "correo": "waos@gmail.com"},
-    {"id": 5, "nombre": "juan", "edad": 60, "correo": "uwu2@gmail.com"},
+    {"id": 1, "nombre": "Victor", "edad": 20, "correo": "victor@gmail.com"},
+    {"id": 2, "nombre": "Oscar", "edad": 22, "correo": "oscar@gmail.com"},
+    {"id": 3, "nombre": "Juan", "edad": 23, "correo": "juan@gmail.com"},
+    {"id": 4, "nombre": "Pedro", "edad": 24, "correo": "pedro@gmail.com"},
+    {"id": 5, "nombre": "Maria", "edad": 25, "correo": "maria@gmail.com"},
 ]
 
+# Ruta de inicio
 @app.get("/", tags=["Inicio"])
-def home():
-    return {"message": "Hello, FastAPI!"}
+def Home():
+    return {"message": "Bienvenido a mi API"}
 
-#Endpoint para generar token
+#Endpoint para generar tok
 @app.post("/auth", tags=["Autenticacion"])
-def auth(credenciales:ModelAuth):
-    if credenciales.mail == "kev@example.com" and credenciales.passw == "123456789":
+def auth(credenciales:modelAuth):
+    if credenciales.mail == "kevin@example.com" and credenciales.passwd == "123456789":
         token:str = create_token(credenciales.model_dump())
         print(token)
-        return {"token": "Token Generado"}
+        return JSONResponse(content={"token": token})
     else:
         return {"Aviso": "Usuario no cuenta con permiso"}
 
-# Endpoint para obtener todos los usuarios
-@app.get("/todosUsuarios", response_model=List[ModelUsuario], tags=["Operaciones CRUD"])
+# Endpoint GET - Obtener todos los usuarios
+@app.get("/todoUsuarios", dependencies= [Depends(BearerJWT())],response_model=List[modelUsuario], tags=["Operaciones CRUD"])
 def leer():
-    return usuarios  # Se devuelve directamente la lista
+    return usuarios 
 
-# Endpoint para agregar un nuevo usuario
-@app.post("/Usuarios/", response_model=ModelUsuario, tags=["Operaciones CRUD"])
-def insert(usuario: ModelUsuario):
+# Endpoint POST - Insertar usuario
+@app.post("/Usuarios/", response_model=modelUsuario, tags=["Operaciones CRUD"], responses={
+    400: {"description": "El usuario ya existe"}
+})
+def insert(usuario: modelUsuario):
     for usr in usuarios:
         if usr["id"] == usuario.id:
             raise HTTPException(status_code=400, detail="El usuario ya existe")
     
-    usuarios.append(usuario.model_dump())  # Usar model_dump() en lugar de dict()
+    usuarios.append(usuario.model_dump())  # Convertir a diccionario antes de agregar
     return usuario
 
-# Endpoint para actualizar un usuario por ID
-@app.put("/Usuarios/{id}", response_model=ModelUsuario, tags=["Operaciones CRUD"])
-def actualizar(id: int, usuarioActualizado: ModelUsuario):
+# Endpoint PUT - Actualizar usuario
+@app.put("/Usuarios/{id}", tags=["Operaciones CRUD"], responses={
+    404: {"description": "Usuario no encontrado"}
+})
+def actualizar(id: int, usuario_actualizado: modelUsuario):
     for index, usr in enumerate(usuarios):
         if usr["id"] == id:
-            usuarios[index] = usuarioActualizado.model_dump()  # Convertir a dict()
-            return usuarios[index]
-    raise HTTPException(status_code=404, detail="Usuario no existe")
+            usuarios[index] = usuario_actualizado.model_dump()  # Convertir a dict
+            return usuario_actualizado
+    raise HTTPException(status_code=404, detail="El usuario no existe")
 
-# Endpoint para eliminar un usuario por ID
-@app.delete('/usuarios/{id}', tags=['Operaciones CRUD'])
+# Endpoint DELETE - Eliminar usuario
+@app.delete("/Usuarios/{id}", tags=["Operaciones CRUD"], responses={
+    404: {"description": "Usuario no encontrado"}
+})
 def eliminar(id: int):
-    for index, usr in enumerate(usuarios):
+    for usr in usuarios:
         if usr["id"] == id:
-            usuario_eliminado = usuarios.pop(index)
-            return {"message": "Usuario eliminado", "usuario": usuario_eliminado}
+            usuarios.remove(usr)
+            return {"message": "Usuario eliminado", "usuario": usr}
     raise HTTPException(status_code=404, detail="El usuario no existe")
