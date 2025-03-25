@@ -1,9 +1,8 @@
 from typing import List
-from fastapi import FastAPI, HTTPException , Depends
-from modelsPydantic import modelAuth, modelUsuario
-from genToken import create_token
+from fastapi import FastAPI, HTTPException
+from modelsPydantic import modelUsuario
 from fastapi.responses import JSONResponse
-from middlewares import BearerJWT
+from fastapi.encoders import jsonable_encoder
 from DB.conexion import Session, engine, Base
 from models.modelsDB import User
 
@@ -29,20 +28,18 @@ usuarios = [
 def Home():
     return {"message": "Bienvenido a mi API"}
 
-#Endpoint para generar tok
-@app.post("/auth", tags=["Autenticacion"])
-def auth(credenciales:modelAuth):
-    if credenciales.mail == "kevin@example.com" and credenciales.passwd == "123456789":
-        token:str = create_token(credenciales.model_dump())
-        print(token)
-        return JSONResponse(content={"token": token})
-    else:
-        return {"Aviso": "Usuario no cuenta con permiso"}
-
 # Endpoint GET - Obtener todos los usuarios
-@app.get("/todoUsuarios", dependencies= [Depends(BearerJWT())],response_model=List[modelUsuario], tags=["Operaciones CRUD"])
+@app.get("/todoUsuarios", response_model=List[modelUsuario], tags=["Operaciones CRUD"])
 def leer():
-    return usuarios 
+    db=Session()
+    try:
+        consulta = db.query(User).all()
+        return JSONResponse(content = jsonable_encoder(consulta))
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"message": "El usuario no se puede guardar", "error": str(e)})
+    finally:
+        db.close()
 
 # Endpoint POST - Insertar usuario
 @app.post("/Usuarios/", response_model=modelUsuario, tags=["Operaciones CRUD"], responses={
@@ -65,6 +62,23 @@ def insert(usuario: modelUsuario):
     finally:
         db.close()
 
+# Endpoint GET - Buscar un solo usuario por ID
+@app.get("/Usuarios/{id}", tags=["Operaciones CRUD"], responses={
+    404: {"description": "Usuario no encontrado"}
+})
+def leeruno(id: int):
+    db = Session()
+    try:
+        consulta1 = db.query(User).filter(User.id == id).first()
+        if not consulta1:
+            return JSONResponse(status_code=404, content={"mensaje": "usuario no encontrado"})
+
+        return JSONResponse(content=jsonable_encoder(consulta1))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al buscar usuario: {str(e)}")
+    finally:
+        db.close()
+ 
 
 # Endpoint PUT - Actualizar usuario
 @app.put("/Usuarios/{id}", tags=["Operaciones CRUD"], responses={
