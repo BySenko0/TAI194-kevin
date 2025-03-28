@@ -85,19 +85,40 @@ def leeruno(id: int):
     404: {"description": "Usuario no encontrado"}
 })
 def actualizar(id: int, usuario_actualizado: modelUsuario):
-    for index, usr in enumerate(usuarios):
-        if usr["id"] == id:
-            usuarios[index] = usuario_actualizado.model_dump()  # Convertir a dict
-            return usuario_actualizado
-    raise HTTPException(status_code=404, detail="El usuario no existe")
+    db = Session()
+    try:
+        usuario_db = db.query(User).filter(User.id == id).first()
+        if not usuario_db:
+            return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
 
-# Endpoint DELETE - Eliminar usuario
+        usuario_db.name = usuario_actualizado.nombre
+        usuario_db.age = usuario_actualizado.edad
+        usuario_db.email = usuario_actualizado.correo
+
+        db.commit()
+        return JSONResponse(content={"message": "Usuario actualizado correctamente", "usuario": usuario_actualizado.model_dump()})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"message": "Error al actualizar usuario", "error": str(e)})
+    finally:
+        db.close()
+
+
 @app.delete("/Usuarios/{id}", tags=["Operaciones CRUD"], responses={
     404: {"description": "Usuario no encontrado"}
 })
 def eliminar(id: int):
-    for usr in usuarios:
-        if usr["id"] == id:
-            usuarios.remove(usr)
-            return {"message": "Usuario eliminado", "usuario": usr}
-    raise HTTPException(status_code=404, detail="El usuario no existe")
+    db = Session()
+    try:
+        usuario_db = db.query(User).filter(User.id == id).first()
+        if not usuario_db:
+            return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+
+        db.delete(usuario_db)
+        db.commit()
+        return JSONResponse(content={"message": "Usuario eliminado correctamente"})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(status_code=500, content={"message": "Error al eliminar usuario", "error": str(e)})
+    finally:
+        db.close()
